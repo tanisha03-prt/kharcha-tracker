@@ -126,6 +126,18 @@ function App() {
     useState("");
 
   // =========================================================
+  // NOTIFICATIONS
+  // =========================================================
+
+  const [notifications, setNotifications] = useState([]);
+
+  const [showNotifications, setShowNotifications] =
+    useState(false);
+
+  const [notificationLoading, setNotificationLoading] =
+    useState(false);
+
+  // =========================================================
   // AUTH HEADERS
   // =========================================================
 
@@ -171,6 +183,7 @@ function App() {
       }
 
       localStorage.setItem("token", data.token);
+
       localStorage.setItem(
         "user",
         JSON.stringify(data.user)
@@ -186,6 +199,7 @@ function App() {
       setPassword("");
     } catch (error) {
       console.error(error);
+
       setMessage("Backend connection failed");
     } finally {
       setLoading(false);
@@ -228,6 +242,7 @@ function App() {
       }
 
       localStorage.setItem("token", data.token);
+
       localStorage.setItem(
         "user",
         JSON.stringify(data.user)
@@ -242,6 +257,7 @@ function App() {
       setPassword("");
     } catch (error) {
       console.error(error);
+
       setMessage("Backend connection failed");
     } finally {
       setLoading(false);
@@ -264,6 +280,7 @@ function App() {
     setMonthlySummary([]);
     setCurrentBudget(null);
     setGoals([]);
+    setNotifications([]);
 
     setSummary({
       totalIncome: 0,
@@ -271,9 +288,7 @@ function App() {
       balance: 0,
     });
 
-    setMessage("");
-    setBudgetMessage("");
-    setGoalMessage("");
+    setShowNotifications(false);
   };
 
   // =========================================================
@@ -300,9 +315,14 @@ function App() {
         return;
       }
 
-      setTransactions(data);
+      setTransactions(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
-      console.error("Fetch transactions error:", error);
+      console.error(
+        "Fetch transactions error:",
+        error
+      );
     }
   };
 
@@ -364,7 +384,9 @@ function App() {
         return;
       }
 
-      setCategorySummary(data);
+      setCategorySummary(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
       console.error(
         "Category summary error:",
@@ -397,7 +419,9 @@ function App() {
         return;
       }
 
-      setMonthlySummary(data);
+      setMonthlySummary(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
       console.error(
         "Monthly summary error:",
@@ -460,9 +484,127 @@ function App() {
         return;
       }
 
-      setGoals(Array.isArray(data) ? data : []);
+      setGoals(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
       console.error("Goals error:", error);
+    }
+  };
+
+  // =========================================================
+  // FETCH NOTIFICATIONS
+  // =========================================================
+
+  const fetchNotifications = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/notifications`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error(data);
+        return;
+      }
+
+      setNotifications(
+        Array.isArray(data) ? data : []
+      );
+    } catch (error) {
+      console.error(
+        "Notifications error:",
+        error
+      );
+    }
+  };
+
+  // =========================================================
+  // MARK NOTIFICATION AS READ
+  // =========================================================
+
+  const markNotificationAsRead = async (
+    id
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/notifications/${id}/read`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) return;
+
+      await fetchNotifications();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // =========================================================
+  // MARK ALL NOTIFICATIONS AS READ
+  // =========================================================
+
+  const markAllNotificationsAsRead =
+    async () => {
+      try {
+        setNotificationLoading(true);
+
+        const response = await fetch(
+          `${API_URL}/notifications/read-all`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) return;
+
+        await fetchNotifications();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setNotificationLoading(false);
+      }
+    };
+
+  // =========================================================
+  // DELETE NOTIFICATION
+  // =========================================================
+
+  const deleteNotification = async (
+    id
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/notifications/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) return;
+
+      await fetchNotifications();
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -478,6 +620,7 @@ function App() {
       fetchMonthlySummary(),
       fetchBudget(),
       fetchGoals(),
+      fetchNotifications(),
     ]);
   };
 
@@ -499,7 +642,9 @@ function App() {
     }
 
     if (Number(amount) < 0) {
-      setMessage("Amount cannot be negative");
+      setMessage(
+        "Amount cannot be negative"
+      );
       return;
     }
 
@@ -585,7 +730,9 @@ function App() {
       behavior: "smooth",
     });
 
-    setMessage("Editing transaction...");
+    setMessage(
+      "Editing transaction..."
+    );
   };
 
   // =========================================================
@@ -733,7 +880,7 @@ function App() {
     };
 
   // =========================================================
-  // SAVE BUDGET
+  // SAVE / UPDATE BUDGET
   // =========================================================
 
   const handleSaveBudget = async () => {
@@ -742,6 +889,13 @@ function App() {
     if (!budgetAmount) {
       setBudgetMessage(
         "Please enter budget amount"
+      );
+      return;
+    }
+
+    if (Number(budgetAmount) < 0) {
+      setBudgetMessage(
+        "Budget cannot be negative"
       );
       return;
     }
@@ -778,6 +932,8 @@ function App() {
       setBudgetMessage(
         "Budget saved successfully!"
       );
+
+      await fetchNotifications();
     } catch (error) {
       console.error(error);
 
@@ -870,6 +1026,7 @@ function App() {
       setGoalTargetDate("");
 
       await fetchGoals();
+      await fetchNotifications();
     } catch (error) {
       console.error(error);
 
@@ -941,6 +1098,7 @@ function App() {
       }
 
       await fetchGoals();
+      await fetchNotifications();
     } catch (error) {
       console.error(error);
 
@@ -1017,11 +1175,11 @@ function App() {
 
         const matchesSearch =
           !search ||
-          transaction.description
-            ?.toLowerCase()
+          (transaction.description || "")
+            .toLowerCase()
             .includes(search) ||
-          transaction.category
-            ?.toLowerCase()
+          (transaction.category || "")
+            .toLowerCase()
             .includes(search);
 
         const matchesType =
@@ -1055,7 +1213,10 @@ function App() {
   const chartData = useMemo(() => {
     return monthlySummary
       .map((item) => ({
-        month: item._id.month,
+        month:
+          item.month ||
+          item._id?.month ||
+          "",
         income:
           item.totalIncome || 0,
         expense:
@@ -1063,7 +1224,8 @@ function App() {
       }))
       .sort(
         (a, b) =>
-          a.month - b.month
+          Number(a.month) -
+          Number(b.month)
       );
   }, [monthlySummary]);
 
@@ -1121,8 +1283,9 @@ function App() {
 
     if (
       currentBudget &&
-      Number(currentBudget.percentage || 0) >=
-        100
+      Number(
+        currentBudget.percentage || 0
+      ) >= 100
     ) {
       return {
         title: "BUDGET ALERT",
@@ -1208,6 +1371,16 @@ function App() {
         };
 
   // =========================================================
+  // NOTIFICATION COUNT
+  // =========================================================
+
+  const unreadNotifications =
+    notifications.filter(
+      (notification) =>
+        !notification.isRead
+    ).length;
+
+  // =========================================================
   // LOAD DASHBOARD
   // =========================================================
 
@@ -1218,7 +1391,7 @@ function App() {
   }, [token]);
 
   // =========================================================
-  // BUDGET MONTH CHANGE
+  // FETCH BUDGET WHEN MONTH/YEAR CHANGES
   // =========================================================
 
   useEffect(() => {
@@ -1231,7 +1404,7 @@ function App() {
   ]);
 
   // =========================================================
-  // LOGIN / SIGNUP SCREEN
+  // AUTH SCREEN
   // =========================================================
 
   if (!token) {
@@ -1336,12 +1509,13 @@ function App() {
   return (
     <div className="app-container">
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
       <div className="dashboard-header">
 
         <div>
-
           <h1>
             Kharcha Tracker
           </h1>
@@ -1350,23 +1524,211 @@ function App() {
             Welcome,{" "}
             {user?.name || "User"} 👋
           </p>
+        </div>
+
+
+        <div className="header-actions">
+
+          {/* NOTIFICATION */}
+
+          <div className="notification-wrapper">
+
+            <button
+              className={`notification-button ${
+                unreadNotifications > 0
+                  ? "has-notifications"
+                  : ""
+              }`}
+              onClick={() =>
+                setShowNotifications(
+                  !showNotifications
+                )
+              }
+            >
+              🔔
+
+              {unreadNotifications > 0 && (
+                <span className="notification-count">
+                  {unreadNotifications > 9
+                    ? "9+"
+                    : unreadNotifications}
+                </span>
+              )}
+            </button>
+
+
+            {showNotifications && (
+
+              <div className="notification-dropdown">
+
+                <div className="notification-header">
+
+                  <div>
+
+                    <span>
+                      ALERT CENTER
+                    </span>
+
+                    <h3>
+                      Notifications
+                    </h3>
+
+                  </div>
+
+
+                  {unreadNotifications > 0 && (
+                    <button
+                      className="mark-all-button"
+                      onClick={
+                        markAllNotificationsAsRead
+                      }
+                      disabled={
+                        notificationLoading
+                      }
+                    >
+                      Mark all read
+                    </button>
+                  )}
+
+                </div>
+
+
+                <div className="notification-list">
+
+                  {notifications.length ===
+                  0 ? (
+
+                    <div className="notification-empty">
+
+                      <div>
+                        ✦
+                      </div>
+
+                      <strong>
+                        All clear
+                      </strong>
+
+                      <p>
+                        You don't have any
+                        notifications.
+                      </p>
+
+                    </div>
+
+                  ) : (
+
+                    notifications.map(
+                      (notification) => (
+
+                        <div
+                          key={
+                            notification._id
+                          }
+                          className={`notification-item ${
+                            notification.isRead
+                              ? "read"
+                              : "unread"
+                          }`}
+                          onClick={() =>
+                            !notification.isRead &&
+                            markNotificationAsRead(
+                              notification._id
+                            )
+                          }
+                        >
+
+                          <div className="notification-icon">
+
+                            {notification.type ===
+                            "budget"
+                              ? "⚠"
+                              : notification.type ===
+                                "goal"
+                              ? "🎯"
+                              : notification.type ===
+                                "success"
+                              ? "✓"
+                              : "!"}
+
+                          </div>
+
+
+                          <div className="notification-content">
+
+                            <strong>
+                              {notification.title ||
+                                "Notification"}
+                            </strong>
+
+                            <p>
+                              {notification.message ||
+                                ""}
+                            </p>
+
+                            <small>
+                              {notification.createdAt
+                                ? new Date(
+                                    notification.createdAt
+                                  ).toLocaleString()
+                                : ""}
+                            </small>
+
+                          </div>
+
+
+                          <button
+                            className="notification-delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+
+                              deleteNotification(
+                                notification._id
+                              );
+                            }}
+                          >
+                            ×
+                          </button>
+
+                        </div>
+
+                      )
+                    )
+
+                  )}
+
+                </div>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {/* LOGOUT */}
+
+          <button
+            className="logout-button"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
 
         </div>
 
-        <button
-          className="logout-button"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
-
       </div>
+
+
+      {/* =====================================================
+          GLOBAL MESSAGE
+      ====================================================== */}
 
       {message && (
         <div className="global-message dashboard-message">
           {message}
         </div>
       )}
+
 
       {/* =====================================================
           TRANSACTION FORM
@@ -1398,6 +1760,7 @@ function App() {
             Expense
           </option>
         </select>
+
 
         <select
           value={category}
@@ -1442,6 +1805,7 @@ function App() {
           </option>
         </select>
 
+
         <input
           type="text"
           placeholder="Description"
@@ -1451,6 +1815,7 @@ function App() {
           }
         />
 
+
         <input
           type="date"
           value={date}
@@ -1458,6 +1823,7 @@ function App() {
             setDate(e.target.value)
           }
         />
+
 
         <div className="transaction-buttons">
 
@@ -1477,6 +1843,7 @@ function App() {
               : "Add Transaction"}
           </button>
 
+
           {isEditingTransaction && (
             <button
               className="secondary-button"
@@ -1492,13 +1859,14 @@ function App() {
 
       </div>
 
+
       {/* =====================================================
           SUMMARY
       ====================================================== */}
 
       <div className="summary-container">
 
-        <div className="summary-card income-card">
+        <div className="summary-card">
 
           <div className="summary-card-top">
 
@@ -1529,7 +1897,7 @@ function App() {
         </div>
 
 
-        <div className="summary-card expense-card">
+        <div className="summary-card">
 
           <div className="summary-card-top">
 
@@ -1560,7 +1928,7 @@ function App() {
         </div>
 
 
-        <div className="summary-card balance-card">
+        <div className="summary-card">
 
           <div className="summary-card-top">
 
@@ -1591,6 +1959,7 @@ function App() {
         </div>
 
       </div>
+
 
       {/* =====================================================
           SMART INSIGHTS
@@ -1714,6 +2083,7 @@ function App() {
 
       </div>
 
+
       {/* =====================================================
           MONTHLY ANALYTICS
       ====================================================== */}
@@ -1739,6 +2109,7 @@ function App() {
           </span>
 
         </div>
+
 
         {chartData.length === 0 ? (
 
@@ -1812,7 +2183,6 @@ function App() {
                   labelStyle={{
                     color: "#f3ce55",
                     fontSize: "8px",
-                    marginBottom: "4px",
                   }}
                   formatter={(
                     value,
@@ -1855,6 +2225,7 @@ function App() {
 
             </ResponsiveContainer>
 
+
             <div className="chart-legend">
 
               <div>
@@ -1874,6 +2245,7 @@ function App() {
         )}
 
       </div>
+
 
       {/* =====================================================
           CATEGORY + BUDGET
@@ -1900,6 +2272,7 @@ function App() {
             </div>
 
           </div>
+
 
           {categorySummary.length === 0 ? (
 
@@ -1941,9 +2314,7 @@ function App() {
 
         {/* BUDGET */}
 
-        <div
-          className={`section budget-section budget-${budgetStatus.className}`}
-        >
+        <div className="section">
 
           <div className="section-heading">
 
@@ -1958,6 +2329,7 @@ function App() {
               </h2>
 
             </div>
+
 
             {currentBudget && (
               <div
@@ -2032,6 +2404,7 @@ function App() {
 
             </select>
 
+
             <input
               type="number"
               placeholder="Budget amount"
@@ -2043,6 +2416,7 @@ function App() {
               }
               min="0"
             />
+
 
             <button
               className="primary-button"
@@ -2104,6 +2478,7 @@ function App() {
                   </strong>
 
                 </div>
+
 
                 <div
                   className={`budget-percentage ${budgetStatus.className}`}
@@ -2184,12 +2559,14 @@ function App() {
                 </div>
               )}
 
+
               {isBudgetWarning && (
-                <div className="budget-warning">
+                <div className="budget-warning soft-warning">
                   ⚠ You have used more than
                   80% of your budget.
                 </div>
               )}
+
 
               {isBudgetSafe && (
                 <div className="budget-success">
@@ -2306,7 +2683,7 @@ function App() {
         )}
 
 
-        {/* GOALS LIST */}
+        {/* GOALS */}
 
         {goals.length === 0 ? (
 
@@ -2369,8 +2746,6 @@ function App() {
                   key={goal._id}
                 >
 
-                  {/* TOP */}
-
                   <div className="goal-card-top">
 
                     <div>
@@ -2384,6 +2759,7 @@ function App() {
                       </h3>
 
                     </div>
+
 
                     {completed ? (
 
@@ -2401,8 +2777,6 @@ function App() {
 
                   </div>
 
-
-                  {/* AMOUNTS */}
 
                   <div className="goal-amounts">
 
@@ -2440,8 +2814,6 @@ function App() {
                   </div>
 
 
-                  {/* PROGRESS */}
-
                   <div className="goal-progress">
 
                     <div
@@ -2457,8 +2829,6 @@ function App() {
 
                   </div>
 
-
-                  {/* BOTTOM INFO */}
 
                   <div className="goal-bottom">
 
@@ -2482,8 +2852,6 @@ function App() {
 
                   </div>
 
-
-                  {/* UPDATE */}
 
                   {!completed && (
 
@@ -2564,8 +2932,6 @@ function App() {
                   )}
 
 
-                  {/* DELETE */}
-
                   <button
                     className="goal-delete-button"
                     onClick={() =>
@@ -2638,6 +3004,7 @@ function App() {
             All
           </button>
 
+
           <button
             className={
               transactionFilter === "income"
@@ -2653,6 +3020,7 @@ function App() {
             Income
           </button>
 
+
           <button
             className={
               transactionFilter === "expense"
@@ -2667,6 +3035,7 @@ function App() {
           >
             Expense
           </button>
+
 
           <select
             className="category-filter"
@@ -2790,14 +3159,12 @@ function App() {
                           : "expense"
                       }
                     >
-
                       {transaction.type ===
                       "income"
                         ? "+"
                         : "-"}
 
                       ₹{transaction.amount}
-
                     </span>
 
 
@@ -2813,6 +3180,7 @@ function App() {
                       >
                         Edit
                       </button>
+
 
                       <button
                         className="delete-button"
