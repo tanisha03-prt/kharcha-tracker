@@ -9,7 +9,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 
 const API_URL = "http://localhost:5001/api";
@@ -55,10 +54,6 @@ function App() {
     new Date().toISOString().split("T")[0]
   );
 
-  // =========================================================
-  // TRANSACTIONS
-  // =========================================================
-
   const [transactions, setTransactions] = useState([]);
 
   const [editingTransactionId, setEditingTransactionId] =
@@ -72,10 +67,8 @@ function App() {
   // =========================================================
 
   const [searchTerm, setSearchTerm] = useState("");
-
   const [transactionFilter, setTransactionFilter] =
     useState("all");
-
   const [categoryFilter, setCategoryFilter] =
     useState("all");
 
@@ -89,16 +82,7 @@ function App() {
     balance: 0,
   });
 
-  // =========================================================
-  // CATEGORY SUMMARY
-  // =========================================================
-
   const [categorySummary, setCategorySummary] = useState([]);
-
-  // =========================================================
-  // MONTHLY ANALYTICS
-  // =========================================================
-
   const [monthlySummary, setMonthlySummary] = useState([]);
 
   // =========================================================
@@ -116,11 +100,29 @@ function App() {
   );
 
   const [budgetAmount, setBudgetAmount] = useState("");
+  const [currentBudget, setCurrentBudget] = useState(null);
+  const [budgetMessage, setBudgetMessage] = useState("");
 
-  const [currentBudget, setCurrentBudget] =
+  // =========================================================
+  // FINANCIAL GOALS
+  // =========================================================
+
+  const [goals, setGoals] = useState([]);
+
+  const [goalName, setGoalName] = useState("");
+  const [goalTargetAmount, setGoalTargetAmount] =
+    useState("");
+  const [goalSavedAmount, setGoalSavedAmount] =
+    useState("");
+  const [goalTargetDate, setGoalTargetDate] =
+    useState("");
+
+  const [goalMessage, setGoalMessage] = useState("");
+
+  const [updatingGoalId, setUpdatingGoalId] =
     useState(null);
 
-  const [budgetMessage, setBudgetMessage] =
+  const [goalUpdateAmount, setGoalUpdateAmount] =
     useState("");
 
   // =========================================================
@@ -169,7 +171,6 @@ function App() {
       }
 
       localStorage.setItem("token", data.token);
-
       localStorage.setItem(
         "user",
         JSON.stringify(data.user)
@@ -185,7 +186,6 @@ function App() {
       setPassword("");
     } catch (error) {
       console.error(error);
-
       setMessage("Backend connection failed");
     } finally {
       setLoading(false);
@@ -198,10 +198,7 @@ function App() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setMessage(
-        "Please enter email and password"
-      );
-
+      setMessage("Please enter email and password");
       return;
     }
 
@@ -231,7 +228,6 @@ function App() {
       }
 
       localStorage.setItem("token", data.token);
-
       localStorage.setItem(
         "user",
         JSON.stringify(data.user)
@@ -246,7 +242,6 @@ function App() {
       setPassword("");
     } catch (error) {
       console.error(error);
-
       setMessage("Backend connection failed");
     } finally {
       setLoading(false);
@@ -268,6 +263,7 @@ function App() {
     setCategorySummary([]);
     setMonthlySummary([]);
     setCurrentBudget(null);
+    setGoals([]);
 
     setSummary({
       totalIncome: 0,
@@ -277,6 +273,7 @@ function App() {
 
     setMessage("");
     setBudgetMessage("");
+    setGoalMessage("");
   };
 
   // =========================================================
@@ -305,10 +302,7 @@ function App() {
 
       setTransactions(data);
     } catch (error) {
-      console.error(
-        "Fetch transactions error:",
-        error
-      );
+      console.error("Fetch transactions error:", error);
     }
   };
 
@@ -443,6 +437,36 @@ function App() {
   };
 
   // =========================================================
+  // FETCH GOALS
+  // =========================================================
+
+  const fetchGoals = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/goals`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error(data);
+        return;
+      }
+
+      setGoals(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Goals error:", error);
+    }
+  };
+
+  // =========================================================
   // REFRESH DASHBOARD
   // =========================================================
 
@@ -453,6 +477,7 @@ function App() {
       fetchCategorySummary(),
       fetchMonthlySummary(),
       fetchBudget(),
+      fetchGoals(),
     ]);
   };
 
@@ -470,7 +495,6 @@ function App() {
       setMessage(
         "Please fill all transaction fields"
       );
-
       return;
     }
 
@@ -488,7 +512,6 @@ function App() {
         {
           method: "POST",
           headers: authHeaders,
-
           body: JSON.stringify({
             amount: Number(amount),
             type,
@@ -506,7 +529,6 @@ function App() {
           data.message ||
             "Failed to add transaction"
         );
-
         return;
       }
 
@@ -562,6 +584,8 @@ function App() {
       top: 0,
       behavior: "smooth",
     });
+
+    setMessage("Editing transaction...");
   };
 
   // =========================================================
@@ -581,12 +605,6 @@ function App() {
         setMessage(
           "Please fill all transaction fields"
         );
-
-        return;
-      }
-
-      if (Number(amount) < 0) {
-        setMessage("Amount cannot be negative");
         return;
       }
 
@@ -599,7 +617,6 @@ function App() {
           {
             method: "PUT",
             headers: authHeaders,
-
             body: JSON.stringify({
               amount: Number(amount),
               type,
@@ -617,7 +634,6 @@ function App() {
             data.message ||
               "Failed to update transaction"
           );
-
           return;
         }
 
@@ -652,9 +668,10 @@ function App() {
     setIsEditingTransaction(false);
 
     setAmount("");
+    setDescription("");
+
     setType("expense");
     setCategory("Food");
-    setDescription("");
 
     setDate(
       new Date()
@@ -671,12 +688,20 @@ function App() {
 
   const handleDeleteTransaction =
     async (id) => {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this transaction?"
+      );
+
+      if (!confirmed) return;
+
       try {
+        setLoading(true);
+        setMessage("");
+
         const response = await fetch(
           `${API_URL}/transactions/${id}`,
           {
             method: "DELETE",
-
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -687,9 +712,9 @@ function App() {
 
         if (!response.ok) {
           setMessage(
-            data.message || "Failed to delete"
+            data.message ||
+              "Failed to delete"
           );
-
           return;
         }
 
@@ -702,6 +727,8 @@ function App() {
         console.error(error);
 
         setMessage("Delete failed");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -716,15 +743,6 @@ function App() {
       setBudgetMessage(
         "Please enter budget amount"
       );
-
-      return;
-    }
-
-    if (Number(budgetAmount) <= 0) {
-      setBudgetMessage(
-        "Budget must be greater than ₹0"
-      );
-
       return;
     }
 
@@ -735,9 +753,7 @@ function App() {
         `${API_URL}/budget`,
         {
           method: "POST",
-
           headers: authHeaders,
-
           body: JSON.stringify({
             month: Number(budgetMonth),
             year: Number(budgetYear),
@@ -753,12 +769,10 @@ function App() {
           data.message ||
             "Failed to save budget"
         );
-
         return;
       }
 
       setCurrentBudget(data.budget);
-
       setBudgetAmount("");
 
       setBudgetMessage(
@@ -776,6 +790,222 @@ function App() {
   };
 
   // =========================================================
+  // CREATE GOAL
+  // =========================================================
+
+  const handleCreateGoal = async () => {
+    setGoalMessage("");
+
+    if (
+      !goalName ||
+      !goalTargetAmount ||
+      !goalTargetDate
+    ) {
+      setGoalMessage(
+        "Please fill all goal fields"
+      );
+      return;
+    }
+
+    if (Number(goalTargetAmount) <= 0) {
+      setGoalMessage(
+        "Target amount must be greater than 0"
+      );
+      return;
+    }
+
+    if (Number(goalSavedAmount || 0) < 0) {
+      setGoalMessage(
+        "Saved amount cannot be negative"
+      );
+      return;
+    }
+
+    if (
+      Number(goalSavedAmount || 0) >
+      Number(goalTargetAmount)
+    ) {
+      setGoalMessage(
+        "Saved amount cannot exceed target amount"
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/goals`,
+        {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            name: goalName,
+            targetAmount:
+              Number(goalTargetAmount),
+            savedAmount:
+              Number(goalSavedAmount || 0),
+            targetDate: goalTargetDate,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGoalMessage(
+          data.message ||
+            "Failed to create goal"
+        );
+        return;
+      }
+
+      setGoalMessage(
+        "Goal created successfully!"
+      );
+
+      setGoalName("");
+      setGoalTargetAmount("");
+      setGoalSavedAmount("");
+      setGoalTargetDate("");
+
+      await fetchGoals();
+    } catch (error) {
+      console.error(error);
+
+      setGoalMessage(
+        "Failed to create goal"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // UPDATE GOAL PROGRESS
+  // =========================================================
+
+  const handleUpdateGoal = async (
+    goalId
+  ) => {
+    if (goalUpdateAmount === "") {
+      return;
+    }
+
+    const amountValue =
+      Number(goalUpdateAmount);
+
+    if (amountValue < 0) {
+      setGoalMessage(
+        "Saved amount cannot be negative"
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setGoalMessage("");
+
+      const response = await fetch(
+        `${API_URL}/goals/${goalId}`,
+        {
+          method: "PUT",
+          headers: authHeaders,
+          body: JSON.stringify({
+            savedAmount: amountValue,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGoalMessage(
+          data.message ||
+            "Failed to update goal"
+        );
+        return;
+      }
+
+      setUpdatingGoalId(null);
+      setGoalUpdateAmount("");
+
+      if (data.completed) {
+        setGoalMessage(
+          "🎉 Goal achieved! Amazing work!"
+        );
+      } else {
+        setGoalMessage(
+          "Goal progress updated!"
+        );
+      }
+
+      await fetchGoals();
+    } catch (error) {
+      console.error(error);
+
+      setGoalMessage(
+        "Failed to update goal"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // DELETE GOAL
+  // =========================================================
+
+  const handleDeleteGoal = async (
+    goalId
+  ) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this goal?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      setGoalMessage("");
+
+      const response = await fetch(
+        `${API_URL}/goals/${goalId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGoalMessage(
+          data.message ||
+            "Failed to delete goal"
+        );
+        return;
+      }
+
+      setGoalMessage(
+        "Goal deleted successfully!"
+      );
+
+      await fetchGoals();
+    } catch (error) {
+      console.error(error);
+
+      setGoalMessage(
+        "Failed to delete goal"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
   // FILTERED TRANSACTIONS
   // =========================================================
 
@@ -783,9 +1013,7 @@ function App() {
     return transactions.filter(
       (transaction) => {
         const search =
-          searchTerm
-            .toLowerCase()
-            .trim();
+          searchTerm.toLowerCase().trim();
 
         const matchesSearch =
           !search ||
@@ -828,10 +1056,8 @@ function App() {
     return monthlySummary
       .map((item) => ({
         month: item._id.month,
-
         income:
           item.totalIncome || 0,
-
         expense:
           item.totalExpense || 0,
       }))
@@ -842,12 +1068,103 @@ function App() {
   }, [monthlySummary]);
 
   // =========================================================
-  // SMART BUDGET STATUS
+  // SMART INSIGHTS
+  // =========================================================
+
+  const highestSpendingCategory =
+    useMemo(() => {
+      if (categorySummary.length === 0) {
+        return null;
+      }
+
+      return [...categorySummary].sort(
+        (a, b) =>
+          Number(b.total || 0) -
+          Number(a.total || 0)
+      )[0];
+    }, [categorySummary]);
+
+  const savings = Math.max(
+    0,
+    Number(summary.totalIncome || 0) -
+      Number(summary.totalExpense || 0)
+  );
+
+  const savingsRate =
+    Number(summary.totalIncome || 0) > 0
+      ? Math.round(
+          (savings /
+            Number(summary.totalIncome)) *
+            100
+        )
+      : 0;
+
+  const expenseShare =
+    Number(summary.totalIncome || 0) > 0
+      ? Math.round(
+          (Number(summary.totalExpense) /
+            Number(summary.totalIncome)) *
+            100
+        )
+      : 0;
+
+  const smartInsight = useMemo(() => {
+    if (transactions.length === 0) {
+      return {
+        title: "START TRACKING",
+        text:
+          "Add your first transaction to unlock personalized spending insights.",
+        className: "insight-neutral",
+        icon: "✦",
+      };
+    }
+
+    if (
+      currentBudget &&
+      Number(currentBudget.percentage || 0) >=
+        100
+    ) {
+      return {
+        title: "BUDGET ALERT",
+        text:
+          "You have exceeded your monthly budget.",
+        className: "insight-danger",
+        icon: "!",
+      };
+    }
+
+    if (highestSpendingCategory) {
+      return {
+        title: "SMART INSIGHT",
+        text:
+          `${highestSpendingCategory._id} is your highest spending category at ₹${highestSpendingCategory.total}.`,
+        className: "insight-gold",
+        icon: "✦",
+      };
+    }
+
+    return {
+      title: "GOOD GOING",
+      text:
+        "Keep tracking your transactions to understand your spending habits.",
+      className: "insight-safe",
+      icon: "✓",
+    };
+  }, [
+    transactions.length,
+    currentBudget,
+    highestSpendingCategory,
+  ]);
+
+  // =========================================================
+  // BUDGET STATUS
   // =========================================================
 
   const budgetPercentage = Math.max(
     0,
-    Number(currentBudget?.percentage || 0)
+    Number(
+      currentBudget?.percentage || 0
+    )
   );
 
   const budgetProgress = Math.min(
@@ -865,26 +1182,30 @@ function App() {
   const isBudgetSafe =
     budgetPercentage < 80;
 
-  const budgetStatus = isBudgetExceeded
-    ? {
-        title: "OVER BUDGET",
-        text: "You have exceeded your monthly spending limit.",
-        className: "danger",
-        icon: "!",
-      }
-    : isBudgetWarning
-    ? {
-        title: "BUDGET WARNING",
-        text: "You are getting close to your monthly limit.",
-        className: "warning",
-        icon: "!",
-      }
-    : {
-        title: "BUDGET ON TRACK",
-        text: "Your spending is within the planned limit.",
-        className: "safe",
-        icon: "✓",
-      };
+  const budgetStatus =
+    isBudgetExceeded
+      ? {
+          title: "OVER BUDGET",
+          text:
+            "You have exceeded your monthly spending limit.",
+          className: "danger",
+          icon: "!",
+        }
+      : isBudgetWarning
+      ? {
+          title: "BUDGET WARNING",
+          text:
+            "You are getting close to your monthly limit.",
+          className: "warning",
+          icon: "!",
+        }
+      : {
+          title: "BUDGET ON TRACK",
+          text:
+            "Your spending is within the planned limit.",
+          className: "safe",
+          icon: "✓",
+        };
 
   // =========================================================
   // LOAD DASHBOARD
@@ -897,14 +1218,17 @@ function App() {
   }, [token]);
 
   // =========================================================
-  // FETCH BUDGET WHEN MONTH/YEAR CHANGES
+  // BUDGET MONTH CHANGE
   // =========================================================
 
   useEffect(() => {
     if (token) {
       fetchBudget();
     }
-  }, [budgetMonth, budgetYear]);
+  }, [
+    budgetMonth,
+    budgetYear,
+  ]);
 
   // =========================================================
   // LOGIN / SIGNUP SCREEN
@@ -1038,15 +1362,15 @@ function App() {
 
       </div>
 
-      {/* GLOBAL MESSAGE */}
-
       {message && (
         <div className="global-message dashboard-message">
           {message}
         </div>
       )}
 
-      {/* TRANSACTION FORM */}
+      {/* =====================================================
+          TRANSACTION FORM
+      ====================================================== */}
 
       <div className="transaction-form">
 
@@ -1081,15 +1405,41 @@ function App() {
             setCategory(e.target.value)
           }
         >
-          <option value="Food">Food</option>
-          <option value="Travel">Travel</option>
-          <option value="Shopping">Shopping</option>
-          <option value="Bills">Bills</option>
-          <option value="Education">Education</option>
-          <option value="Entertainment">Entertainment</option>
-          <option value="Health">Health</option>
-          <option value="Salary">Salary</option>
-          <option value="Other">Other</option>
+          <option value="Food">
+            Food
+          </option>
+
+          <option value="Travel">
+            Travel
+          </option>
+
+          <option value="Shopping">
+            Shopping
+          </option>
+
+          <option value="Bills">
+            Bills
+          </option>
+
+          <option value="Education">
+            Education
+          </option>
+
+          <option value="Entertainment">
+            Entertainment
+          </option>
+
+          <option value="Health">
+            Health
+          </option>
+
+          <option value="Salary">
+            Salary
+          </option>
+
+          <option value="Other">
+            Other
+          </option>
         </select>
 
         <input
@@ -1130,7 +1480,9 @@ function App() {
           {isEditingTransaction && (
             <button
               className="secondary-button"
-              onClick={handleCancelEdit}
+              onClick={
+                handleCancelEdit
+              }
             >
               Cancel
             </button>
@@ -1140,7 +1492,9 @@ function App() {
 
       </div>
 
-      {/* SUMMARY */}
+      {/* =====================================================
+          SUMMARY
+      ====================================================== */}
 
       <div className="summary-container">
 
@@ -1174,6 +1528,7 @@ function App() {
 
         </div>
 
+
         <div className="summary-card expense-card">
 
           <div className="summary-card-top">
@@ -1203,6 +1558,7 @@ function App() {
           <div className="summary-glow-line" />
 
         </div>
+
 
         <div className="summary-card balance-card">
 
@@ -1236,7 +1592,131 @@ function App() {
 
       </div>
 
-      {/* ANALYTICS */}
+      {/* =====================================================
+          SMART INSIGHTS
+      ====================================================== */}
+
+      <div className="insights-section">
+
+        <div className="section-heading">
+
+          <div>
+
+            <span className="section-label">
+              INTELLIGENCE
+            </span>
+
+            <h2>
+              Smart Insights
+            </h2>
+
+          </div>
+
+          <span className="analytics-label">
+            Your money at a glance
+          </span>
+
+        </div>
+
+
+        <div className="insights-grid">
+
+          <div className="insight-card">
+
+            <div className="insight-card-icon">
+              ★
+            </div>
+
+            <span className="insight-card-label">
+              TOP CATEGORY
+            </span>
+
+            <strong>
+              {highestSpendingCategory
+                ? highestSpendingCategory._id
+                : "—"}
+            </strong>
+
+            <p>
+              {highestSpendingCategory
+                ? `₹${highestSpendingCategory.total} spent`
+                : "No expense data yet"}
+            </p>
+
+          </div>
+
+
+          <div className="insight-card">
+
+            <div className="insight-card-icon">
+              ₹
+            </div>
+
+            <span className="insight-card-label">
+              SAVINGS
+            </span>
+
+            <strong>
+              ₹{savings}
+            </strong>
+
+            <p>
+              {savingsRate}% of income saved
+            </p>
+
+          </div>
+
+
+          <div className="insight-card">
+
+            <div className="insight-card-icon">
+              %
+            </div>
+
+            <span className="insight-card-label">
+              EXPENSE RATIO
+            </span>
+
+            <strong>
+              {expenseShare}%
+            </strong>
+
+            <p>
+              Income used on expenses
+            </p>
+
+          </div>
+
+
+          <div
+            className={`smart-insight-box ${smartInsight.className}`}
+          >
+
+            <div className="smart-insight-icon">
+              {smartInsight.icon}
+            </div>
+
+            <div>
+
+              <span>
+                {smartInsight.title}
+              </span>
+
+              <p>
+                {smartInsight.text}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* =====================================================
+          MONTHLY ANALYTICS
+      ====================================================== */}
 
       <div className="analytics-section">
 
@@ -1268,95 +1748,136 @@ function App() {
 
         ) : (
 
-          <div
-            className="chart-container"
-            style={{
-              height: "180px",
-              minHeight: "180px",
-              maxHeight: "180px",
-              overflow: "hidden",
-            }}
-          >
+          <div className="premium-chart">
 
             <ResponsiveContainer
               width="100%"
-              height={180}
-              minHeight={180}
+              height={220}
             >
 
               <BarChart
                 data={chartData}
                 margin={{
-                  top: 5,
+                  top: 10,
                   right: 8,
-                  left: 0,
-                  bottom: 5,
+                  left: -15,
+                  bottom: 0,
                 }}
+                barCategoryGap="28%"
               >
 
                 <CartesianGrid
-                  strokeDasharray="3 3"
-                  opacity={0.2}
+                  vertical={false}
+                  stroke="#24231f"
+                  strokeDasharray="4 5"
+                  opacity={0.5}
                 />
 
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#68645c",
+                    fontSize: 8,
+                  }}
                 />
 
                 <YAxis
-                  width={40}
-                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#68645c",
+                    fontSize: 7,
+                  }}
+                  tickFormatter={(value) =>
+                    `₹${value}`
+                  }
                 />
 
                 <Tooltip
-                  formatter={(value) =>
-                    `₹${value}`
-                  }
-                  labelFormatter={(label) =>
-                    `Month ${label}`
-                  }
+                  cursor={{
+                    fill:
+                      "rgba(217,174,39,0.035)",
+                  }}
                   contentStyle={{
-                    background: "#0b0b0b",
+                    background: "#0b0b0a",
                     border:
-                      "1px solid #d9ae27",
-                    borderRadius: "8px",
-                    fontSize: "11px",
+                      "1px solid rgba(217,174,39,0.25)",
+                    borderRadius: "7px",
+                    boxShadow:
+                      "0 8px 25px rgba(0,0,0,0.5)",
+                    fontSize: "8px",
                   }}
-                />
-
-                <Legend
-                  wrapperStyle={{
-                    fontSize: "10px",
+                  labelStyle={{
+                    color: "#f3ce55",
+                    fontSize: "8px",
+                    marginBottom: "4px",
                   }}
+                  formatter={(
+                    value,
+                    name
+                  ) => [
+                    `₹${value}`,
+                    name === "income"
+                      ? "Income"
+                      : "Expense",
+                  ]}
                 />
 
                 <Bar
                   dataKey="income"
-                  name="Income"
-                  fill="#e0b92f"
-                  maxBarSize={28}
-                  radius={[6, 6, 0, 0]}
+                  name="income"
+                  fill="#d9ae27"
+                  radius={[
+                    5,
+                    5,
+                    2,
+                    2,
+                  ]}
+                  maxBarSize={16}
                 />
 
                 <Bar
                   dataKey="expense"
-                  name="Expense"
-                  fill="#8f7422"
-                  maxBarSize={28}
-                  radius={[6, 6, 0, 0]}
+                  name="expense"
+                  fill="#70571b"
+                  radius={[
+                    5,
+                    5,
+                    2,
+                    2,
+                  ]}
+                  maxBarSize={16}
                 />
 
               </BarChart>
 
             </ResponsiveContainer>
 
+            <div className="chart-legend">
+
+              <div>
+                <span className="legend-dot income-dot" />
+                Income
+              </div>
+
+              <div>
+                <span className="legend-dot expense-dot" />
+                Expense
+              </div>
+
+            </div>
+
           </div>
+
         )}
 
       </div>
 
-      {/* CATEGORY + BUDGET */}
+      {/* =====================================================
+          CATEGORY + BUDGET
+      ====================================================== */}
 
       <div className="dashboard-grid">
 
@@ -1417,7 +1938,8 @@ function App() {
 
         </div>
 
-        {/* SMART BUDGET */}
+
+        {/* BUDGET */}
 
         <div
           className={`section budget-section budget-${budgetStatus.className}`}
@@ -1448,6 +1970,7 @@ function App() {
 
           </div>
 
+
           <div className="budget-form">
 
             <select
@@ -1458,18 +1981,55 @@ function App() {
                 )
               }
             >
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
+
+              <option value="1">
+                January
+              </option>
+
+              <option value="2">
+                February
+              </option>
+
+              <option value="3">
+                March
+              </option>
+
+              <option value="4">
+                April
+              </option>
+
+              <option value="5">
+                May
+              </option>
+
+              <option value="6">
+                June
+              </option>
+
+              <option value="7">
+                July
+              </option>
+
+              <option value="8">
+                August
+              </option>
+
+              <option value="9">
+                September
+              </option>
+
+              <option value="10">
+                October
+              </option>
+
+              <option value="11">
+                November
+              </option>
+
+              <option value="12">
+                December
+              </option>
+
             </select>
 
             <input
@@ -1486,7 +2046,9 @@ function App() {
 
             <button
               className="primary-button"
-              onClick={handleSaveBudget}
+              onClick={
+                handleSaveBudget
+              }
               disabled={loading}
             >
               Save Budget
@@ -1494,27 +2056,17 @@ function App() {
 
           </div>
 
-          {budgetMessage && (
 
-            <div
-              className={
-                budgetMessage.includes(
-                  "successfully"
-                )
-                  ? "budget-message success"
-                  : "budget-message error"
-              }
-            >
+          {budgetMessage && (
+            <div className="budget-message">
               {budgetMessage}
             </div>
-
           )}
+
 
           {currentBudget && (
 
             <div className="budget-display">
-
-              {/* STATUS */}
 
               <div
                 className={`budget-status-card ${budgetStatus.className}`}
@@ -1538,7 +2090,6 @@ function App() {
 
               </div>
 
-              {/* TOP */}
 
               <div className="budget-top">
 
@@ -1562,20 +2113,19 @@ function App() {
 
               </div>
 
-              {/* PROGRESS */}
 
               <div className="budget-progress">
 
                 <div
                   className={`budget-progress-fill ${budgetStatus.className}`}
                   style={{
-                    width: `${budgetProgress}%`,
+                    width:
+                      `${budgetProgress}%`,
                   }}
                 />
 
               </div>
 
-              {/* SCALE */}
 
               <div className="budget-scale">
 
@@ -1589,7 +2139,6 @@ function App() {
 
               </div>
 
-              {/* STATS */}
 
               <div className="budget-stats">
 
@@ -1605,6 +2154,7 @@ function App() {
 
                 </div>
 
+
                 <div className="budget-stat">
 
                   <span>
@@ -1613,13 +2163,7 @@ function App() {
                       : "REMAINING"}
                   </span>
 
-                  <strong
-                    className={
-                      isBudgetExceeded
-                        ? "over-budget-value"
-                        : "remaining-value"
-                    }
-                  >
+                  <strong>
                     ₹
                     {isBudgetExceeded
                       ? Math.abs(
@@ -1632,33 +2176,26 @@ function App() {
 
               </div>
 
-              {/* WARNING */}
 
               {isBudgetExceeded && (
-
-                <div className="budget-warning danger-warning">
+                <div className="budget-warning">
                   ⚠ You have exceeded your
                   monthly budget.
                 </div>
-
               )}
 
               {isBudgetWarning && (
-
-                <div className="budget-warning soft-warning">
+                <div className="budget-warning">
                   ⚠ You have used more than
                   80% of your budget.
                 </div>
-
               )}
 
               {isBudgetSafe && (
-
                 <div className="budget-success">
                   ✓ You are safely within
                   your monthly budget.
                 </div>
-
               )}
 
               <small className="budget-date">
@@ -1674,7 +2211,387 @@ function App() {
 
       </div>
 
-      {/* RECENT TRANSACTIONS */}
+
+      {/* =====================================================
+          FINANCIAL GOALS
+      ====================================================== */}
+
+      <div className="section goals-section">
+
+        <div className="section-heading">
+
+          <div>
+
+            <span className="section-label">
+              FUTURE PLANNING
+            </span>
+
+            <h2>
+              Financial Goals 🎯
+            </h2>
+
+          </div>
+
+          <span className="analytics-label">
+            Turn plans into progress
+          </span>
+
+        </div>
+
+
+        {/* CREATE GOAL */}
+
+        <div className="goal-create-form">
+
+          <input
+            type="text"
+            placeholder="Goal name e.g. New Laptop"
+            value={goalName}
+            onChange={(e) =>
+              setGoalName(e.target.value)
+            }
+          />
+
+          <input
+            type="number"
+            placeholder="Target amount"
+            value={goalTargetAmount}
+            onChange={(e) =>
+              setGoalTargetAmount(
+                e.target.value
+              )
+            }
+            min="0"
+          />
+
+          <input
+            type="number"
+            placeholder="Already saved"
+            value={goalSavedAmount}
+            onChange={(e) =>
+              setGoalSavedAmount(
+                e.target.value
+              )
+            }
+            min="0"
+          />
+
+          <input
+            type="date"
+            value={goalTargetDate}
+            onChange={(e) =>
+              setGoalTargetDate(
+                e.target.value
+              )
+            }
+          />
+
+          <button
+            className="primary-button"
+            onClick={
+              handleCreateGoal
+            }
+            disabled={loading}
+          >
+            + Create Goal
+          </button>
+
+        </div>
+
+
+        {goalMessage && (
+          <div className="goal-message">
+            {goalMessage}
+          </div>
+        )}
+
+
+        {/* GOALS LIST */}
+
+        {goals.length === 0 ? (
+
+          <div className="goal-empty">
+
+            <div className="goal-empty-icon">
+              🎯
+            </div>
+
+            <strong>
+              No financial goals yet
+            </strong>
+
+            <p>
+              Create a goal and start building
+              your future.
+            </p>
+
+          </div>
+
+        ) : (
+
+          <div className="goals-grid">
+
+            {goals.map((goal) => {
+
+              const percentage =
+                Number(
+                  goal.percentage || 0
+                );
+
+              const completed =
+                goal.completed ||
+                Number(
+                  goal.savedAmount || 0
+                ) >=
+                  Number(
+                    goal.targetAmount || 0
+                  );
+
+              const remaining =
+                Math.max(
+                  Number(
+                    goal.targetAmount || 0
+                  ) -
+                    Number(
+                      goal.savedAmount || 0
+                    ),
+                  0
+                );
+
+              return (
+
+                <div
+                  className={`goal-card ${
+                    completed
+                      ? "goal-completed"
+                      : ""
+                  }`}
+                  key={goal._id}
+                >
+
+                  {/* TOP */}
+
+                  <div className="goal-card-top">
+
+                    <div>
+
+                      <span className="goal-small-label">
+                        SAVINGS GOAL
+                      </span>
+
+                      <h3>
+                        {goal.name}
+                      </h3>
+
+                    </div>
+
+                    {completed ? (
+
+                      <div className="goal-achieved">
+                        ✓ ACHIEVED
+                      </div>
+
+                    ) : (
+
+                      <div className="goal-percent">
+                        {percentage}%
+                      </div>
+
+                    )}
+
+                  </div>
+
+
+                  {/* AMOUNTS */}
+
+                  <div className="goal-amounts">
+
+                    <div>
+
+                      <span>
+                        SAVED
+                      </span>
+
+                      <strong>
+                        ₹
+                        {Number(
+                          goal.savedAmount || 0
+                        ).toLocaleString()}
+                      </strong>
+
+                    </div>
+
+
+                    <div>
+
+                      <span>
+                        TARGET
+                      </span>
+
+                      <strong>
+                        ₹
+                        {Number(
+                          goal.targetAmount || 0
+                        ).toLocaleString()}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* PROGRESS */}
+
+                  <div className="goal-progress">
+
+                    <div
+                      className="goal-progress-fill"
+                      style={{
+                        width:
+                          `${Math.min(
+                            percentage,
+                            100
+                          )}%`,
+                      }}
+                    />
+
+                  </div>
+
+
+                  {/* BOTTOM INFO */}
+
+                  <div className="goal-bottom">
+
+                    <span>
+
+                      {completed
+                        ? "Goal completed 🎉"
+                        : `₹${remaining.toLocaleString()} remaining`}
+
+                    </span>
+
+                    <span>
+
+                      {goal.targetDate
+                        ? new Date(
+                            goal.targetDate
+                          ).toLocaleDateString()
+                        : "No date"}
+
+                    </span>
+
+                  </div>
+
+
+                  {/* UPDATE */}
+
+                  {!completed && (
+
+                    <div className="goal-update">
+
+                      {updatingGoalId ===
+                      goal._id ? (
+
+                        <>
+
+                          <input
+                            type="number"
+                            placeholder="New saved amount"
+                            value={
+                              goalUpdateAmount
+                            }
+                            onChange={(e) =>
+                              setGoalUpdateAmount(
+                                e.target.value
+                              )
+                            }
+                            min="0"
+                            max={
+                              goal.targetAmount
+                            }
+                          />
+
+                          <button
+                            className="primary-button"
+                            onClick={() =>
+                              handleUpdateGoal(
+                                goal._id
+                              )
+                            }
+                            disabled={loading}
+                          >
+                            Save
+                          </button>
+
+                          <button
+                            className="secondary-button"
+                            onClick={() => {
+                              setUpdatingGoalId(
+                                null
+                              );
+
+                              setGoalUpdateAmount(
+                                ""
+                              );
+                            }}
+                          >
+                            Cancel
+                          </button>
+
+                        </>
+
+                      ) : (
+
+                        <button
+                          className="goal-update-button"
+                          onClick={() => {
+                            setUpdatingGoalId(
+                              goal._id
+                            );
+
+                            setGoalUpdateAmount(
+                              goal.savedAmount || 0
+                            );
+                          }}
+                        >
+                          Update Progress
+                        </button>
+
+                      )}
+
+                    </div>
+
+                  )}
+
+
+                  {/* DELETE */}
+
+                  <button
+                    className="goal-delete-button"
+                    onClick={() =>
+                      handleDeleteGoal(
+                        goal._id
+                      )
+                    }
+                  >
+                    Delete
+                  </button>
+
+                </div>
+
+              );
+            })}
+
+          </div>
+
+        )}
+
+      </div>
+
+
+      {/* =====================================================
+          TRANSACTIONS
+      ====================================================== */}
 
       <div className="section transactions-section">
 
@@ -1694,6 +2611,7 @@ function App() {
 
         </div>
 
+
         <input
           className="search-input"
           type="text"
@@ -1703,6 +2621,7 @@ function App() {
             setSearchTerm(e.target.value)
           }
         />
+
 
         <div className="filters">
 
@@ -1758,6 +2677,7 @@ function App() {
               )
             }
           >
+
             <option value="all">
               All Categories
             </option>
@@ -1797,27 +2717,26 @@ function App() {
             <option value="Other">
               Other
             </option>
+
           </select>
 
         </div>
 
+
         <div className="transaction-count">
 
           Showing{" "}
-
           <strong>
             {filteredTransactions.length}
           </strong>{" "}
-
           of{" "}
-
           <strong>
             {transactions.length}
           </strong>{" "}
-
           transactions
 
         </div>
+
 
         {filteredTransactions.length ===
         0 ? (
@@ -1841,7 +2760,9 @@ function App() {
                   <div className="transaction-info">
 
                     <strong>
-                      {transaction.description}
+                      {
+                        transaction.description
+                      }
                     </strong>
 
                     <p>
@@ -1857,6 +2778,7 @@ function App() {
                     </small>
 
                   </div>
+
 
                   <div className="transaction-right">
 
@@ -1877,6 +2799,7 @@ function App() {
                       ₹{transaction.amount}
 
                     </span>
+
 
                     <div className="transaction-actions">
 
